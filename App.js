@@ -1,48 +1,110 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, Button } from 'react-native';
+import { useState, useEffect } from 'react';
+import { StyleSheet, View, FlatList, Button, Alert, Pressable } from 'react-native';
+import { Ionicons } from '@expo/vector-icons'; 
+
+import GoalItem from './components/GoalItem';
+import GoalInput from './components/GoalInput';
 
 export default function App() {
-  const [enteredGoalText, setEnteredGoalText] = useState('');
+  const [modalIsVisible, setModalIsVisible] = useState(false);
   const [courseGoals, setCourseGoals] = useState([]);
 
-  function goalInputHandler(enteredText) {
-    setEnteredGoalText(enteredText);
-  };
+  // 1. Welcome Pop-up logic
+  function welcomeUserHandler() {
+    Alert.alert(
+      "Welcome!",
+      "Hello Aaron! Welcome to your Goal Tracker application.",
+      [{ text: "Let's Go!", style: "default" }]
+    );
+  }
 
-  function addGoalHandler() {
-    if (enteredGoalText.trim().length === 0) {
-      return;
+  // 2. Monitoring goal count for "Overwhelming Burden" Warning
+  useEffect(() => {
+    if (courseGoals.length > 5) {
+      Alert.alert(
+        "Warning!",
+        "You have more than 5 goals. Be careful not to overwhelm yourself with too much burden!",
+        [{ text: "I understand", style: "cancel" }]
+      );
     }
+  }, [courseGoals.length]);
 
+  function startAddGoalHandler() {
+    setModalIsVisible(true);
+  }
+
+  function endAddGoalHandler() {
+    setModalIsVisible(false);
+  }
+
+  function addGoalHandler(enteredGoalText) {
+    if (enteredGoalText.trim().length === 0) return;
     setCourseGoals((currentCourseGoals) => [
       ...currentCourseGoals,
-      enteredGoalText
+      { text: enteredGoalText, id: Math.random().toString() },
     ]);
-    
-    setEnteredGoalText('');
-  };
+    endAddGoalHandler();
+  }
+
+  // 3. Deletion Logic with Confirmation
+  function deleteGoalHandler(id) {
+    Alert.alert(
+      "Delete Goal",
+      "Are you sure you want to delete this goal?",
+      [
+        { text: "No", style: "cancel" },
+        { 
+          text: "Yes, Delete", 
+          style: "destructive", 
+          onPress: () => {
+            setCourseGoals((currentGoals) => {
+              return currentGoals.filter((goal) => goal.id !== id);
+            });
+          } 
+        }
+      ]
+    );
+  }
 
   return (
     <View style={styles.appContainer}>
-      <View style={styles.inputContainer}>
-        <TextInput 
-          placeholder="Your Course Goal" 
-          style={styles.textInput} 
-          onChangeText={goalInputHandler}
-          value={enteredGoalText}
-        />
-        <View style={styles.buttonContainer}>
-          <Button title="Add Goal" onPress={addGoalHandler} color="#5e0acc" />
-        </View>
+      {/* User Icon Bar */}
+      <View style={styles.navBar}>
+        <Pressable onPress={welcomeUserHandler} style={({pressed}) => pressed && styles.pressedIcon}>
+          <Ionicons name="person-circle" size={45} color="#5e0acc" />
+        </Pressable>
       </View>
 
+      <View style={styles.mainButtonContainer}>
+        <Button 
+          title="Add New Goal" 
+          color="#5e0acc" 
+          onPress={startAddGoalHandler} 
+        />
+      </View>
+      
+      {/* This component is only visible when modalIsVisible is true */}
+      <GoalInput 
+        visible={modalIsVisible} 
+        onAddGoal={addGoalHandler} 
+        onCancel={endAddGoalHandler} 
+      />
+      
       <View style={styles.goalsContainer}>
-        <Text style={styles.subtitle}>Current Goals</Text>
-        {courseGoals.map((goal, index) => (
-          <View key={index} style={styles.goalItem}>
-            <Text style={styles.goalText}>{goal}</Text>
-          </View>
-        ))}
+        <FlatList
+          data={courseGoals}
+          renderItem={(itemData) => {
+            return (
+              <GoalItem 
+                text={itemData.item.text} 
+                id={itemData.item.id} 
+                onDeleteItem={deleteGoalHandler} 
+              />
+            );
+          }}
+          keyExtractor={(item) => item.id}
+          alwaysBounceVertical={false}
+        />
       </View>
     </View>
   );
@@ -53,54 +115,23 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: 60,
     paddingHorizontal: 20,
-    backgroundColor: '#f4f4f4',
+    backgroundColor: '#ffffff',
   },
-  inputContainer: {
-    flex: 1,
+  navBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
+    justifyContent: 'flex-end',
+    marginBottom: 10,
+  },
+  mainButtonContainer: {
     borderBottomWidth: 1,
-    borderBottomColor: '#d1d1d1',
+    borderBottomColor: '#cccccc',
     paddingBottom: 20,
-  },
-  textInput: {
-    borderWidth: 1,
-    borderColor: '#b2b2b2',
-    backgroundColor: 'white',
-    borderRadius: 8,
-    width: '70%',
-    padding: 12,
-    fontSize: 16,
-  },
-  buttonContainer: {
-    width: '25%',
+    marginBottom: 20,
   },
   goalsContainer: {
     flex: 5,
-    marginTop: 10,
   },
-  subtitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    color: '#333',
-  },
-  goalItem: {
-    marginVertical: 6,
-    padding: 12,
-    borderRadius: 10,
-    backgroundColor: '#5e0acc',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-  },
-  goalText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '500',
+  pressedIcon: {
+    opacity: 0.7,
   }
 });
