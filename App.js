@@ -1,137 +1,140 @@
-import { useState, useEffect } from 'react';
-import { StyleSheet, View, FlatList, Button, Alert, Pressable } from 'react-native';
-import { Ionicons } from '@expo/vector-icons'; 
+import React from 'react';
+import { 
+  StyleSheet, 
+  View, 
+  Alert, 
+  BackHandler, 
+  Image, 
+  TouchableHighlight 
+} from 'react-native';
+import Status from './components/Status';
+import MessageList from './messaging/components/MessageList.js';
+import { 
+  createImageMessage, 
+  createLocationMessage, 
+  createTextMessage 
+} from './messaging/utils/MessageUtils';
 
-import GoalItem from './components/GoalItem';
-import GoalInput from './components/GoalInput';
+export default class App extends React.Component {
+  state = {
+    messages: [
+      createImageMessage('https://unsplash.it/300/300'),
+      createTextMessage('World'),
+      createTextMessage('Hello'),
+      createLocationMessage({
+        latitude: 37.78825,
+        longitude: -122.4324,
+      }),
+    ],
+    fullscreenImageId: null,
+  };
 
-export default function App() {
-  const [modalIsVisible, setModalIsVisible] = useState(false);
-  const [courseGoals, setCourseGoals] = useState([]);
-
-  // 1. Welcome Pop-up logic
-  function welcomeUserHandler() {
-    Alert.alert(
-      "Welcome!",
-      "Hello Aaron Rowen! Welcome to your Goal Tracker application.",
-      [{ text: "Let's Go!", style: "default" }]
-    );
+  componentDidMount() {
+    this.subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      const { fullscreenImageId } = this.state;
+      if (fullscreenImageId) {
+        this.dismissFullscreenImage();
+        return true;
+      }
+      return false;
+    });
   }
 
-  // 2. Monitoring goal count for "Overwhelming Burden" Warning
-  useEffect(() => {
-    if (courseGoals.length > 5) {
-      Alert.alert(
-        "Warning!",
-        "You have more than 5 goals. Be careful not to overwhelm yourself with too much burden!",
-        [{ text: "I understand", style: "cancel" }]
-      );
+  componentWillUnmount() {
+    this.subscription.remove();
+  }
+
+  dismissFullscreenImage = () => {
+    this.setState({ fullscreenImageId: null });
+  };
+
+  handlePressMessage = ({ id, type }) => {
+    switch (type) {
+      case 'text':
+        Alert.alert(
+          'Delete message?',
+          'Are you sure you want to permanently delete this message?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Delete',
+              style: 'destructive',
+              onPress: () => {
+                const { messages } = this.state;
+                this.setState({
+                  messages: messages.filter(message => message.id !== id),
+                });
+              },
+            },
+          ],
+        );
+        break;
+      case 'image':
+        this.setState({ fullscreenImageId: id });
+        break;
+      default:
+        break;
     }
-  }, [courseGoals.length]);
+  };
 
-  function startAddGoalHandler() {
-    setModalIsVisible(true);
-  }
-
-  function endAddGoalHandler() {
-    setModalIsVisible(false);
-  }
-
-  function addGoalHandler(enteredGoalText) {
-    if (enteredGoalText.trim().length === 0) return;
-    setCourseGoals((currentCourseGoals) => [
-      ...currentCourseGoals,
-      { text: enteredGoalText, id: Math.random().toString() },
-    ]);
-    endAddGoalHandler();
-  }
-
-  // 3. Deletion Logic with Confirmation
-  function deleteGoalHandler(id) {
-    Alert.alert(
-      "Delete Goal",
-      "Are you sure you want to delete this goal?",
-      [
-        { text: "No", style: "cancel" },
-        { 
-          text: "Yes, Delete", 
-          style: "destructive", 
-          onPress: () => {
-            setCourseGoals((currentGoals) => {
-              return currentGoals.filter((goal) => goal.id !== id);
-            });
-          } 
-        }
-      ]
+  renderMessageList() {
+    const { messages } = this.state;
+    return (
+      <View style={styles.content}>
+        <MessageList 
+          messages={messages} 
+          onPressMessage={this.handlePressMessage} 
+        />
+      </View>
     );
   }
 
-  return (
-    <View style={styles.appContainer}>
-      {/* User Icon Bar */}
-      <View style={styles.navBar}>
-        <Pressable onPress={welcomeUserHandler} style={({pressed}) => pressed && styles.pressedIcon}>
-          <Ionicons name="person-circle" size={45} color="#5e0acc" />
-        </Pressable>
-      </View>
+  renderFullscreenImage = () => {
+    const { messages, fullscreenImageId } = this.state;
+    if (!fullscreenImageId) return null;
 
-      <View style={styles.mainButtonContainer}>
-        <Button 
-          title="Add New Goal" 
-          color="#5e0acc" 
-          onPress={startAddGoalHandler} 
-        />
+    const image = messages.find(m => m.id === fullscreenImageId);
+    if (!image) return null;
+
+    const { uri } = image;
+    return (
+      <TouchableHighlight 
+        style={styles.fullscreenOverlay} 
+        onPress={this.dismissFullscreenImage}
+        underlayColor="black"
+      >
+        <Image style={styles.fullscreenImage} source={{ uri }} />
+      </TouchableHighlight>
+    );
+  };
+
+  render() {
+    return (
+      <View style={styles.container}>
+        <Status />
+        {this.renderMessageList()}
+        {this.renderFullscreenImage()}
       </View>
-      
-      {/* This component is only visible when modalIsVisible is true */}
-      <GoalInput 
-        visible={modalIsVisible} 
-        onAddGoal={addGoalHandler} 
-        onCancel={endAddGoalHandler} 
-      />
-      
-      <View style={styles.goalsContainer}>
-        <FlatList
-          data={courseGoals}
-          renderItem={(itemData) => {
-            return (
-              <GoalItem 
-                text={itemData.item.text} 
-                id={itemData.item.id} 
-                onDeleteItem={deleteGoalHandler} 
-              />
-            );
-          }}
-          keyExtractor={(item) => item.id}
-          alwaysBounceVertical={false}
-        />
-      </View>
-    </View>
-  );
+    );
+  }
 }
 
 const styles = StyleSheet.create({
-  appContainer: {
+  container: {
     flex: 1,
-    paddingTop: 60,
-    paddingHorizontal: 20,
-    backgroundColor: '#ffffff',
+    backgroundColor: 'white',
   },
-  navBar: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginBottom: 10,
+  content: {
+    flex: 1,
+    backgroundColor: 'white',
   },
-  mainButtonContainer: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#cccccc',
-    paddingBottom: 20,
-    marginBottom: 20,
+  fullscreenOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'black',
+    zIndex: 2,
   },
-  goalsContainer: {
-    flex: 5,
+  fullscreenImage: {
+    flex: 1,
+    resizeMode: 'contain',
   },
-  pressedIcon: {
-    opacity: 0.7,
-  }
 });
