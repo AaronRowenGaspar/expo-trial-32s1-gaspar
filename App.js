@@ -13,7 +13,7 @@ export default function App() {
   function welcomeUserHandler() {
     Alert.alert(
       "Welcome!",
-      "Hello Aaron! Welcome to your Goal Tracker application.",
+      "Hello Aaron Rowen! Welcome to your Goal Tracker application.",
       [{ text: "Let's Go!", style: "default" }]
     );
   }
